@@ -6,7 +6,6 @@ import (
 
 	"github.com/micro/go-micro/network/router"
 	pb "github.com/micro/go-micro/network/router/proto"
-	"github.com/micro/go-micro/network/router/table"
 )
 
 // Router implements router handler
@@ -16,8 +15,8 @@ type Router struct {
 
 // Lookup looks up routes in the routing table and returns them
 func (r *Router) Lookup(ctx context.Context, req *pb.LookupRequest, resp *pb.LookupResponse) error {
-	query := table.NewQuery(
-		table.QueryService(req.Query.Service),
+	query := router.NewQuery(
+		router.QueryService(req.Query.Service),
 	)
 
 	routes, err := r.Router.Lookup(query)
@@ -79,7 +78,7 @@ func (r *Router) Watch(ctx context.Context, req *pb.WatchRequest, stream pb.Rout
 
 	for {
 		event, err := watcher.Next()
-		if err == table.ErrWatcherStopped {
+		if err == router.ErrWatcherStopped {
 			break
 		}
 
@@ -107,5 +106,21 @@ func (r *Router) Watch(ctx context.Context, req *pb.WatchRequest, stream pb.Rout
 		}
 	}
 
+	return nil
+}
+
+func (r *Router) Advertise(context.Context, *pb.AdvertiseRequest, pb.Router_AdvertiseStream) error {
+	return nil
+}
+func (r *Router) Process(context.Context, *pb.Advert, *pb.ProcessResponse) error {
+	return nil
+}
+func (r *Router) Create(context.Context, *pb.Route, *pb.CreateResponse) error {
+	return nil
+}
+func (r *Router) Delete(context.Context, *pb.Route, *pb.DeleteResponse) error {
+	return nil
+}
+func (r *Router) Update(context.Context, *pb.Route, *pb.UpdateResponse) error {
 	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/micro/micro/router"
 	"github.com/micro/micro/server"
 	"github.com/micro/micro/service"
+	"github.com/micro/micro/servicerouter"
 	"github.com/micro/micro/web"
 
 	// include usage
@@ -183,6 +184,7 @@ func Setup(app *ccli.App, options ...micro.Option) {
 	app.Commands = append(app.Commands, cli.Commands()...)
 	app.Commands = append(app.Commands, proxy.Commands(options...)...)
 	app.Commands = append(app.Commands, router.Commands(options...)...)
+	app.Commands = append(app.Commands, servicerouter.Commands(options...)...)
 	app.Commands = append(app.Commands, server.Commands(options...)...)
 	app.Commands = append(app.Commands, service.Commands(options...)...)
 	app.Commands = append(app.Commands, new.Commands()...)
