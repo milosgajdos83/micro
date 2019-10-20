@@ -5,7 +5,8 @@ import (
 
 	"github.com/micro/go-micro/errors"
 	"github.com/micro/go-micro/router"
-	pb "github.com/micro/go-micro/router/proto"
+	"github.com/micro/go-micro/router/table"
+	pb "github.com/micro/go-micro/router/table/proto"
 )
 
 type Table struct {
@@ -13,7 +14,7 @@ type Table struct {
 }
 
 func (t *Table) Create(ctx context.Context, route *pb.Route, resp *pb.CreateResponse) error {
-	err := t.Router.Table().Create(router.Route{
+	err := t.Router.Table().Create(table.Route{
 		Service: route.Service,
 		Address: route.Address,
 		Gateway: route.Gateway,
@@ -30,7 +31,7 @@ func (t *Table) Create(ctx context.Context, route *pb.Route, resp *pb.CreateResp
 }
 
 func (t *Table) Update(ctx context.Context, route *pb.Route, resp *pb.UpdateResponse) error {
-	err := t.Router.Table().Update(router.Route{
+	err := t.Router.Table().Update(table.Route{
 		Service: route.Service,
 		Address: route.Address,
 		Gateway: route.Gateway,
@@ -47,7 +48,7 @@ func (t *Table) Update(ctx context.Context, route *pb.Route, resp *pb.UpdateResp
 }
 
 func (t *Table) Delete(ctx context.Context, route *pb.Route, resp *pb.DeleteResponse) error {
-	err := t.Router.Table().Delete(router.Route{
+	err := t.Router.Table().Delete(table.Route{
 		Service: route.Service,
 		Address: route.Address,
 		Gateway: route.Gateway,
@@ -89,8 +90,8 @@ func (t *Table) List(ctx context.Context, req *pb.Request, resp *pb.ListResponse
 	return nil
 }
 
-func (t *Table) Query(ctx context.Context, req *pb.QueryRequest, resp *pb.QueryResponse) error {
-	routes, err := t.Router.Table().Query(router.QueryService(req.Query.Service))
+func (t *Table) Lookup(ctx context.Context, req *pb.LookupRequest, resp *pb.LookupResponse) error {
+	routes, err := t.Router.Table().Lookup(table.QueryService(req.Query.Service))
 	if err != nil {
 		return errors.InternalServerError("go.micro.router", "failed to lookup routes: %s", err)
 	}

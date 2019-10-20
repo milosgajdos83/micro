@@ -1,4 +1,4 @@
-package router
+package table
 
 import "testing"
 
@@ -104,7 +104,7 @@ func TestList(t *testing.T) {
 	}
 }
 
-func TestQuery(t *testing.T) {
+func TestLookup(t *testing.T) {
 	table, route := testSetup()
 
 	svc := []string{"svc1", "svc2", "svc3"}
@@ -123,7 +123,7 @@ func TestQuery(t *testing.T) {
 	}
 
 	// return all routes
-	routes, err := table.Query()
+	routes, err := table.Lookup()
 	if err != nil {
 		t.Errorf("error looking up routes: %s", err)
 	}
@@ -131,7 +131,7 @@ func TestQuery(t *testing.T) {
 	// query routes particular network
 	network := "net1"
 
-	routes, err = table.Query(QueryNetwork(network))
+	routes, err = table.Lookup(QueryNetwork(network))
 	if err != nil {
 		t.Errorf("error looking up routes: %s", err)
 	}
@@ -149,7 +149,7 @@ func TestQuery(t *testing.T) {
 	// query routes for particular gateway
 	gateway := "gw1"
 
-	routes, err = table.Query(QueryGateway(gateway))
+	routes, err = table.Lookup(QueryGateway(gateway))
 	if err != nil {
 		t.Errorf("error looking up routes: %s", err)
 	}
@@ -165,7 +165,7 @@ func TestQuery(t *testing.T) {
 	// query routes for particular router
 	router := "rtr1"
 
-	routes, err = table.Query(QueryRouter(router))
+	routes, err = table.Lookup(QueryRouter(router))
 	if err != nil {
 		t.Errorf("error looking up routes: %s", err)
 	}
@@ -185,7 +185,7 @@ func TestQuery(t *testing.T) {
 		QueryRouter(router),
 	}
 
-	routes, err = table.Query(query...)
+	routes, err = table.Lookup(query...)
 	if err != nil {
 		t.Errorf("error looking up routes: %s", err)
 	}
@@ -207,7 +207,7 @@ func TestQuery(t *testing.T) {
 	}
 
 	// non-existen route query
-	routes, err = table.Query(QueryService("foobar"))
+	routes, err = table.Lookup(QueryService("foobar"))
 	if err != ErrRouteNotFound {
 		t.Errorf("error looking up routes. Expected: %s, found: %s", ErrRouteNotFound, err)
 	}

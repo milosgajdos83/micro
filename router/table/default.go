@@ -1,7 +1,6 @@
-package router
+package table
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -9,14 +8,7 @@ import (
 	"github.com/micro/go-micro/util/log"
 )
 
-var (
-	// ErrRouteNotFound is returned when no route was found in the routing table
-	ErrRouteNotFound = errors.New("route not found")
-	// ErrDuplicateRoute is returned when the route already exists
-	ErrDuplicateRoute = errors.New("duplicate route")
-)
-
-// table is an in-memory routing table
+// table is an memory routing table which stores routes in Go map
 type table struct {
 	sync.RWMutex
 	// routes stores service routes
@@ -26,7 +18,7 @@ type table struct {
 }
 
 // newtable creates a new routing table and returns it
-func newTable(opts ...Option) *table {
+func newTable() *table {
 	return &table{
 		routes:   make(map[string]map[uint64]Route),
 		watchers: make(map[string]*tableWatcher),
@@ -180,7 +172,7 @@ func findRoutes(routes map[uint64]Route, address, gateway, network, router strin
 }
 
 // Lookup queries routing table and returns all routes that match the lookup query
-func (t *table) Query(q ...QueryOption) ([]Route, error) {
+func (t *table) Lookup(q ...QueryOption) ([]Route, error) {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -235,4 +227,9 @@ func (t *table) Watch(opts ...WatchOption) (Watcher, error) {
 	t.Unlock()
 
 	return w, nil
+}
+
+// String implement fmt.Stringer interface
+func (t *table) String() string {
+	return "memory"
 }

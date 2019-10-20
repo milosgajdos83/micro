@@ -4,17 +4,26 @@ import (
 	"context"
 
 	"github.com/micro/go-micro/client"
-	"github.com/micro/go-micro/router"
-	pb "github.com/micro/go-micro/router/proto"
+	"github.com/micro/go-micro/router/table"
+	pb "github.com/micro/go-micro/router/table/proto"
 )
 
-type table struct {
+type svc struct {
 	table    pb.TableService
 	callOpts []client.CallOption
 }
 
+func NewTable(name string, c client.Client, callOpts []client.CallOption) table.Table {
+	table := pb.NewTableService(name, c)
+
+	return &svc{
+		table:    table,
+		callOpts: callOpts,
+	}
+}
+
 // Create new route in the routing table
-func (t *table) Create(r router.Route) error {
+func (t *svc) Create(r table.Route) error {
 	route := &pb.Route{
 		Service: r.Service,
 		Address: r.Address,
@@ -32,7 +41,7 @@ func (t *table) Create(r router.Route) error {
 }
 
 // Delete deletes existing route from the routing table
-func (t *table) Delete(r router.Route) error {
+func (t *svc) Delete(r table.Route) error {
 	route := &pb.Route{
 		Service: r.Service,
 		Address: r.Address,
@@ -50,7 +59,7 @@ func (t *table) Delete(r router.Route) error {
 }
 
 // Update updates route in the routing table
-func (t *table) Update(r router.Route) error {
+func (t *svc) Update(r table.Route) error {
 	route := &pb.Route{
 		Service: r.Service,
 		Address: r.Address,
@@ -68,15 +77,15 @@ func (t *table) Update(r router.Route) error {
 }
 
 // List returns the list of all routes in the table
-func (t *table) List() ([]router.Route, error) {
+func (t *svc) List() ([]table.Route, error) {
 	resp, err := t.table.List(context.Background(), &pb.Request{}, t.callOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	routes := make([]router.Route, len(resp.Routes))
+	routes := make([]table.Route, len(resp.Routes))
 	for i, route := range resp.Routes {
-		routes[i] = router.Route{
+		routes[i] = table.Route{
 			Service: route.Service,
 			Address: route.Address,
 			Gateway: route.Gateway,
@@ -90,11 +99,11 @@ func (t *table) List() ([]router.Route, error) {
 }
 
 // Lookup looks up routes in the routing table and returns them
-func (t *table) Query(q ...router.QueryOption) ([]router.Route, error) {
-	query := router.NewQuery(q...)
+func (t *svc) Lookup(q ...table.QueryOption) ([]table.Route, error) {
+	query := table.NewQuery(q...)
 
 	// call the router
-	resp, err := t.table.Query(context.Background(), &pb.QueryRequest{
+	resp, err := t.table.Lookup(context.Background(), &pb.LookupRequest{
 		Query: &pb.Query{
 			Service: query.Service,
 			Gateway: query.Gateway,
@@ -107,9 +116,9 @@ func (t *table) Query(q ...router.QueryOption) ([]router.Route, error) {
 		return nil, err
 	}
 
-	routes := make([]router.Route, len(resp.Routes))
+	routes := make([]table.Route, len(resp.Routes))
 	for i, route := range resp.Routes {
-		routes[i] = router.Route{
+		routes[i] = table.Route{
 			Service: route.Service,
 			Address: route.Address,
 			Gateway: route.Gateway,
@@ -120,4 +129,23 @@ func (t *table) Query(q ...router.QueryOption) ([]router.Route, error) {
 	}
 
 	return routes, nil
+}
+
+// Watch returns table watcher
+func (t *svc) Watch(opts ...table.WatchOption) (table.Watcher, error) {
+	rsp, err := t.table.Watch(context.Background(), &pb.WatchRequest{}, t.callOpts...)
+	if err != nil {
+		return nil, err
+	}
+	options := table.WatchOptions{
+		Service: "*",
+	}
+	for _, o := range opts {
+		o(&options)
+	}
+	return newWatcher(rsp, options)
+}
+
+func (t *svc) String() string {
+	return "service"
 }

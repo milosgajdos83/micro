@@ -5,21 +5,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/micro/go-micro/router"
-	pb "github.com/micro/go-micro/router/proto"
+	"github.com/micro/go-micro/router/table"
+	pb "github.com/micro/go-micro/router/table/proto"
 )
 
 type watcher struct {
 	sync.RWMutex
-	opts    router.WatchOptions
-	resChan chan *router.Event
+	opts    table.WatchOptions
+	resChan chan *table.Event
 	done    chan struct{}
 }
 
-func newWatcher(rsp pb.Router_WatchService, opts router.WatchOptions) (*watcher, error) {
+func newWatcher(rsp pb.Table_WatchService, opts table.WatchOptions) (*watcher, error) {
 	w := &watcher{
 		opts:    opts,
-		resChan: make(chan *router.Event),
+		resChan: make(chan *table.Event),
 		done:    make(chan struct{}),
 	}
 
@@ -41,7 +41,7 @@ func newWatcher(rsp pb.Router_WatchService, opts router.WatchOptions) (*watcher,
 }
 
 // watchRouter watches router and send events to all registered watchers
-func (w *watcher) watch(stream pb.Router_WatchService) error {
+func (w *watcher) watch(stream pb.Table_WatchService) error {
 	defer stream.Close()
 
 	var watchErr error
@@ -55,7 +55,7 @@ func (w *watcher) watch(stream pb.Router_WatchService) error {
 			break
 		}
 
-		route := router.Route{
+		route := table.Route{
 			Service: resp.Route.Service,
 			Address: resp.Route.Address,
 			Gateway: resp.Route.Gateway,
@@ -64,8 +64,8 @@ func (w *watcher) watch(stream pb.Router_WatchService) error {
 			Metric:  int(resp.Route.Metric),
 		}
 
-		event := &router.Event{
-			Type:      router.EventType(resp.Type),
+		event := &table.Event{
+			Type:      table.EventType(resp.Type),
 			Timestamp: time.Unix(0, resp.Timestamp),
 			Route:     route,
 		}
@@ -80,7 +80,7 @@ func (w *watcher) watch(stream pb.Router_WatchService) error {
 }
 
 // Next is a blocking call that returns watch result
-func (w *watcher) Next() (*router.Event, error) {
+func (w *watcher) Next() (*table.Event, error) {
 	for {
 		select {
 		case res := <-w.resChan:
@@ -91,13 +91,13 @@ func (w *watcher) Next() (*router.Event, error) {
 				continue
 			}
 		case <-w.done:
-			return nil, router.ErrWatcherStopped
+			return nil, table.ErrWatcherStopped
 		}
 	}
 }
 
 // Chan returns event channel
-func (w *watcher) Chan() (<-chan *router.Event, error) {
+func (w *watcher) Chan() (<-chan *table.Event, error) {
 	return w.resChan, nil
 }
 

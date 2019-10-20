@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package go.micro.table;
+
+service Table {
+	rpc Create(Route) returns (CreateResponse) {};
+        rpc Delete(Route) returns (DeleteResponse) {};
+        rpc Update(Route) returns (UpdateResponse) {};
+        rpc List(Request) returns (ListResponse) {};
+	rpc Lookup(LookupRequest) returns (LookupResponse) {};
+        rpc Watch(WatchRequest) returns (stream Event) {};
+}
+
+// Empty request
+message Request {}
+
+// Empty response
+message Response {}
+
+// CreateResponse is returned by Create
+message CreateResponse {}
+
+// DeleteResponse is returned by Delete
+message DeleteResponse {}
+
+// UpdateResponse is returned by Update
+message UpdateResponse {}
+
+// ListResponse is returned by List
+message ListResponse {
+	repeated Route routes = 1;
+}
+
+// WatchRequest is made to Watch routing table
+message WatchRequest {}
+
+// EventType defines the type of event
+enum EventType {
+        Create = 0;
+        Delete = 1;
+        Update = 2;
+}
+
+// Event is routing table event
+message Event {
+        // type of event
+        EventType type = 1;
+        // unix timestamp of event
+        int64 timestamp = 2;
+        // service route
+	Route route = 3;
+}
+
+// LookupRequest queries Table for Routes
+message LookupRequest{
+	Query query = 1;
+}
+
+// LookupResponse is returned by Lookup
+message LookupResponse {
+	repeated Route routes = 1;
+}
+
+// Query is passed in a LookupRequest
+message Query {
+	// service to lookup
+	string service = 1;
+        // gateway to lookup
+        string gateway = 2;
+        // network to lookup
+        string network = 3;
+}
+
+// Route is a service route
+message Route {
+	// service for the route
+	string service = 1;
+	// the address that advertise this route
+	string address = 2;
+	// gateway as the next hop
+	string gateway = 3;
+	// the network for this destination
+	string network = 4;
+	// router if the router id
+	string router = 5;
+	// the network link
+	string link = 6;
+	// the metric / score of this route
+	int64 metric = 7;
+}
+

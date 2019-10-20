@@ -11,6 +11,8 @@ import (
 	"github.com/micro/go-micro/client"
 	"github.com/micro/go-micro/router"
 	pb "github.com/micro/go-micro/router/proto"
+	"github.com/micro/go-micro/router/table"
+	tsvc "github.com/micro/go-micro/router/table/service"
 )
 
 type svc struct {
@@ -18,7 +20,7 @@ type svc struct {
 	opts       router.Options
 	callOpts   []client.CallOption
 	router     pb.RouterService
-	table      *table
+	table      table.Table
 	status     *router.Status
 	exit       chan bool
 	errChan    chan error
@@ -63,7 +65,7 @@ func NewRouter(opts ...router.Option) router.Router {
 		}
 	}
 	// set the table
-	s.table = &table{pb.NewTableService(router.DefaultName, cli), s.callOpts}
+	s.table = tsvc.NewTable(router.DefaultName, cli, s.callOpts)
 
 	return s
 }
@@ -90,7 +92,7 @@ func (s *svc) Options() router.Options {
 }
 
 // Table returns routing table
-func (s *svc) Table() router.Table {
+func (s *svc) Table() table.Table {
 	return s.table
 }
 
@@ -124,9 +126,9 @@ func (s *svc) advertiseEvents(advertChan chan *router.Advert, stream pb.Router_A
 			break
 		}
 
-		events := make([]*router.Event, len(resp.Events))
+		events := make([]*table.Event, len(resp.Events))
 		for i, event := range resp.Events {
-			route := router.Route{
+			route := table.Route{
 				Service: event.Route.Service,
 				Address: event.Route.Address,
 				Gateway: event.Route.Gateway,
@@ -135,8 +137,8 @@ func (s *svc) advertiseEvents(advertChan chan *router.Advert, stream pb.Router_A
 				Metric:  int(event.Route.Metric),
 			}
 
-			events[i] = &router.Event{
-				Type:      router.EventType(event.Type),
+			events[i] = &table.Event{
+				Type:      table.EventType(event.Type),
 				Timestamp: time.Unix(0, event.Timestamp),
 				Route:     route,
 			}
@@ -229,10 +231,10 @@ func (s *svc) Solicit() error {
 	}
 
 	// build events to advertise
-	events := make([]*router.Event, len(routes))
+	events := make([]*table.Event, len(routes))
 	for i, _ := range events {
-		events[i] = &router.Event{
-			Type:      router.Update,
+		events[i] = &table.Event{
+			Type:      table.Update,
 			Timestamp: time.Now(),
 			Route:     routes[i],
 		}
@@ -318,54 +320,6 @@ func (s *svc) Stop() error {
 	}
 
 	return nil
-}
-
-// Lookup looks up routes in the routing table and returns them
-func (s *svc) Lookup(q ...router.QueryOption) ([]router.Route, error) {
-	// call the router
-	query := router.NewQuery(q...)
-
-	resp, err := s.router.Lookup(context.Background(), &pb.LookupRequest{
-		Query: &pb.Query{
-			Service: query.Service,
-			Gateway: query.Gateway,
-			Network: query.Network,
-		},
-	}, s.callOpts...)
-
-	// errored out
-	if err != nil {
-		return nil, err
-	}
-
-	routes := make([]router.Route, len(resp.Routes))
-	for i, route := range resp.Routes {
-		routes[i] = router.Route{
-			Service: route.Service,
-			Address: route.Address,
-			Gateway: route.Gateway,
-			Network: route.Network,
-			Link:    route.Link,
-			Metric:  int(route.Metric),
-		}
-	}
-
-	return routes, nil
-}
-
-// Watch returns a watcher which allows to track updates to the routing table
-func (s *svc) Watch(opts ...router.WatchOption) (router.Watcher, error) {
-	rsp, err := s.router.Watch(context.Background(), &pb.WatchRequest{}, s.callOpts...)
-	if err != nil {
-		return nil, err
-	}
-	options := router.WatchOptions{
-		Service: "*",
-	}
-	for _, o := range opts {
-		o(&options)
-	}
-	return newWatcher(rsp, options)
 }
 
 // Returns the router implementation

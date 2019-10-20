@@ -1,4 +1,4 @@
-package router
+package table
 
 // QueryOption sets routing table query options
 type QueryOption func(*QueryOptions)

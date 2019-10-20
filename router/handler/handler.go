@@ -8,6 +8,7 @@ import (
 	"github.com/micro/go-micro/errors"
 	"github.com/micro/go-micro/router"
 	pb "github.com/micro/go-micro/router/proto"
+	"github.com/micro/go-micro/router/table"
 )
 
 // Router implements router handler
@@ -17,7 +18,7 @@ type Router struct {
 
 // Lookup looks up routes in the routing table and returns them
 func (r *Router) Lookup(ctx context.Context, req *pb.LookupRequest, resp *pb.LookupResponse) error {
-	routes, err := r.Router.Lookup(router.QueryService(req.Query.Service))
+	routes, err := r.Router.Table().Lookup(table.QueryService(req.Query.Service))
 	if err != nil {
 		return errors.InternalServerError("go.micro.router", "failed to lookup routes: %v", err)
 	}
@@ -99,9 +100,9 @@ func (r *Router) Advertise(ctx context.Context, req *pb.Request, stream pb.Route
 
 // Process processes advertisements
 func (r *Router) Process(ctx context.Context, req *pb.Advert, rsp *pb.ProcessResponse) error {
-	events := make([]*router.Event, len(req.Events))
+	events := make([]*table.Event, len(req.Events))
 	for i, event := range req.Events {
-		route := router.Route{
+		route := table.Route{
 			Service: event.Route.Service,
 			Address: event.Route.Address,
 			Gateway: event.Route.Gateway,
@@ -111,8 +112,8 @@ func (r *Router) Process(ctx context.Context, req *pb.Advert, rsp *pb.ProcessRes
 			Metric:  int(event.Route.Metric),
 		}
 
-		events[i] = &router.Event{
-			Type:      router.EventType(event.Type),
+		events[i] = &table.Event{
+			Type:      table.EventType(event.Type),
 			Timestamp: time.Unix(0, event.Timestamp),
 			Route:     route,
 		}
@@ -150,7 +151,7 @@ func (r *Router) Status(ctx context.Context, req *pb.Request, rsp *pb.StatusResp
 
 // Watch streans routing table events
 func (r *Router) Watch(ctx context.Context, req *pb.WatchRequest, stream pb.Router_WatchStream) error {
-	watcher, err := r.Router.Watch()
+	watcher, err := r.Router.Table().Watch()
 	if err != nil {
 		return errors.InternalServerError("go.micro.router", "failed creating event watcher: %v", err)
 	}
@@ -159,7 +160,7 @@ func (r *Router) Watch(ctx context.Context, req *pb.WatchRequest, stream pb.Rout
 
 	for {
 		event, err := watcher.Next()
-		if err == router.ErrWatcherStopped {
+		if err == table.ErrWatcherStopped {
 			return errors.InternalServerError("go.micro.router", "watcher stopped")
 		}
 
@@ -187,6 +188,4 @@ func (r *Router) Watch(ctx context.Context, req *pb.WatchRequest, stream pb.Rout
 			return err
 		}
 	}
-
-	return nil
 }

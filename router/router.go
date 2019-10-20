@@ -3,6 +3,8 @@ package router
 
 import (
 	"time"
+
+	"github.com/micro/go-micro/router/table"
 )
 
 var (
@@ -23,17 +25,13 @@ type Router interface {
 	// Options returns the router options
 	Options() Options
 	// The routing table
-	Table() Table
+	Table() table.Table
 	// Advertise advertises routes to the network
 	Advertise() (<-chan *Advert, error)
 	// Process processes incoming adverts
 	Process(*Advert) error
 	// Solicit advertises the whole routing table to the network
 	Solicit() error
-	// Lookup queries routes in the routing table
-	Lookup(...QueryOption) ([]Route, error)
-	// Watch returns a watcher which tracks updates to the routing table
-	Watch(opts ...WatchOption) (Watcher, error)
 	// Start starts the router
 	Start() error
 	// Status returns router status
@@ -42,20 +40,6 @@ type Router interface {
 	Stop() error
 	// Returns the router implementation
 	String() string
-}
-
-// Table is an interface for routing table
-type Table interface {
-	// Create new route in the routing table
-	Create(Route) error
-	// Delete existing route from the routing table
-	Delete(Route) error
-	// Update route in the routing table
-	Update(Route) error
-	// List all routes in the table
-	List() ([]Route, error)
-	// Query routes in the routing table
-	Query(...QueryOption) ([]Route, error)
 }
 
 // Option used by the router
@@ -136,7 +120,7 @@ type Advert struct {
 	// TTL is Advert TTL
 	TTL time.Duration
 	// Events is a list of routing table events to advertise
-	Events []*Event
+	Events []*table.Event
 }
 
 // Strategy is route advertisement strategy

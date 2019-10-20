@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/micro/go-micro/registry"
+	"github.com/micro/go-micro/router/table"
 	"github.com/micro/go-micro/util/log"
 )
 
@@ -46,10 +47,10 @@ type router struct {
 	sync.RWMutex
 	options   Options
 	status    Status
-	table     *table
+	table     table.Table
 	exit      chan struct{}
 	errChan   chan error
-	eventChan chan *Event
+	eventChan chan *table.Event
 	advertWg  *sync.WaitGroup
 	wg        *sync.WaitGroup
 
@@ -73,7 +74,7 @@ func newRouter(opts ...Option) Router {
 	return &router{
 		options:     options,
 		status:      status,
-		table:       newTable(),
+		table:       options.Table,
 		advertWg:    &sync.WaitGroup{},
 		wg:          &sync.WaitGroup{},
 		subscribers: make(map[string]chan *Advert),
@@ -102,19 +103,19 @@ func (r *router) Options() Options {
 }
 
 // Table returns routing table
-func (r *router) Table() Table {
+func (r *router) Table() table.Table {
 	return r.table
 }
 
 // manageRoute applies action on a given route
-func (r *router) manageRoute(route Route, action string) error {
+func (r *router) manageRoute(route table.Route, action string) error {
 	switch action {
 	case "create":
-		if err := r.table.Create(route); err != nil && err != ErrDuplicateRoute {
+		if err := r.table.Create(route); err != nil && err != table.ErrDuplicateRoute {
 			return fmt.Errorf("failed adding route for service %s: %s", route.Service, err)
 		}
 	case "delete":
-		if err := r.table.Delete(route); err != nil && err != ErrRouteNotFound {
+		if err := r.table.Delete(route); err != nil && err != table.ErrRouteNotFound {
 			return fmt.Errorf("failed deleting route for service %s: %s", route.Service, err)
 		}
 	case "update":
@@ -139,14 +140,14 @@ func (r *router) manageServiceRoutes(service *registry.Service, action string) e
 
 	// take route action on each service node
 	for _, node := range service.Nodes {
-		route := Route{
+		route := table.Route{
 			Service: service.Name,
 			Address: node.Address,
 			Gateway: "",
 			Network: r.options.Network,
 			Router:  r.options.Id,
-			Link:    DefaultLink,
-			Metric:  DefaultLocalMetric,
+			Link:    table.DefaultLink,
+			Metric:  table.DefaultLocalMetric,
 		}
 
 		if err := r.manageRoute(route, action); err != nil {
@@ -229,7 +230,7 @@ func (r *router) watchRegistry(w registry.Watcher) error {
 
 // watchTable watches routing table entries and either adds or deletes locally registered service to/from network registry
 // It returns error if the locally registered services either fails to be added/deleted to/from network registry.
-func (r *router) watchTable(w Watcher) error {
+func (r *router) watchTable(w table.Watcher) error {
 	exit := make(chan bool)
 
 	defer func() {
@@ -257,7 +258,7 @@ func (r *router) watchTable(w Watcher) error {
 	for {
 		event, err := w.Next()
 		if err != nil {
-			if err != ErrWatcherStopped {
+			if err != table.ErrWatcherStopped {
 				watchErr = err
 			}
 			break
@@ -279,7 +280,7 @@ func (r *router) watchTable(w Watcher) error {
 
 // publishAdvert publishes router advert to advert channel
 // NOTE: this might cease to be a dedicated method in the future
-func (r *router) publishAdvert(advType AdvertType, events []*Event) {
+func (r *router) publishAdvert(advType AdvertType, events []*table.Event) {
 	defer r.advertWg.Done()
 
 	a := &Advert{
@@ -320,7 +321,7 @@ func (r *router) advertiseTable() error {
 		select {
 		case <-ticker.C:
 			// do full table flush
-			events, err := r.flushRouteEvents(Update)
+			events, err := r.flushRouteEvents(table.Update)
 			if err != nil {
 				return fmt.Errorf("failed flushing routes: %s", err)
 			}
@@ -340,7 +341,7 @@ func (r *router) advertiseTable() error {
 // routeAdvert contains a route event to be advertised
 type routeAdvert struct {
 	// event received from routing table
-	event *Event
+	event *table.Event
 	// lastUpdate records the time of the last advert update
 	lastUpdate time.Time
 	// penalty is current advert penalty
@@ -362,7 +363,7 @@ func (r *router) advertiseEvents() error {
 	advertMap := make(map[uint64]*routeAdvert)
 
 	// routing table watcher
-	tableWatcher, err := r.Watch()
+	tableWatcher, err := r.table.Watch()
 	if err != nil {
 		return fmt.Errorf("failed creating routing table watcher: %v", err)
 	}
@@ -379,7 +380,7 @@ func (r *router) advertiseEvents() error {
 	for {
 		select {
 		case <-ticker.C:
-			var events []*Event
+			var events []*table.Event
 			// collect all events which are not flapping
 			for key, advert := range advertMap {
 				// decay the event penalty
@@ -406,7 +407,7 @@ func (r *router) advertiseEvents() error {
 				}
 
 				if !advert.isSuppressed {
-					e := new(Event)
+					e := new(table.Event)
 					*e = *(advert.event)
 					events = append(events, e)
 					// delete the advert from the advertMap
@@ -429,9 +430,9 @@ func (r *router) advertiseEvents() error {
 			// determine the event penalty
 			var penalty float64
 			switch e.Type {
-			case Update:
+			case table.Update:
 				penalty = UpdatePenalty
-			case Delete:
+			case table.Delete:
 				penalty = DeletePenalty
 			}
 
@@ -533,14 +534,14 @@ func (r *router) Start() error {
 	// add default gateway into routing table
 	if r.options.Gateway != "" {
 		// note, the only non-default value is the gateway
-		route := Route{
+		route := table.Route{
 			Service: "*",
 			Address: "*",
 			Gateway: r.options.Gateway,
 			Network: "*",
 			Router:  r.options.Id,
-			Link:    DefaultLink,
-			Metric:  DefaultLocalMetric,
+			Link:    table.DefaultLink,
+			Metric:  table.DefaultLocalMetric,
 		}
 		if err := r.table.Create(route); err != nil {
 			e := fmt.Errorf("failed adding default gateway route: %s", err)
@@ -597,13 +598,13 @@ func (r *router) Advertise() (<-chan *Advert, error) {
 		return advertChan, nil
 	case Running:
 		// list all the routes and pack them into even slice to advertise
-		events, err := r.flushRouteEvents(Create)
+		events, err := r.flushRouteEvents(table.Create)
 		if err != nil {
 			return nil, fmt.Errorf("failed to flush routes: %s", err)
 		}
 
 		// create event channels
-		r.eventChan = make(chan *Event)
+		r.eventChan = make(chan *table.Event)
 
 		// advertise your presence
 		r.advertWg.Add(1)
@@ -647,7 +648,7 @@ func (r *router) Advertise() (<-chan *Advert, error) {
 func (r *router) Process(a *Advert) error {
 	// NOTE: event sorting might not be necessary
 	// copy update events intp new slices
-	events := make([]*Event, len(a.Events))
+	events := make([]*table.Event, len(a.Events))
 	copy(events, a.Events)
 	// sort events by timestamp
 	sort.Slice(events, func(i, j int) bool {
@@ -675,7 +676,7 @@ func (r *router) Process(a *Advert) error {
 }
 
 // flushRouteEvents returns a slice of events, one per each route in the routing table
-func (r *router) flushRouteEvents(evType EventType) ([]*Event, error) {
+func (r *router) flushRouteEvents(evType table.EventType) ([]*table.Event, error) {
 	// list all routes
 	routes, err := r.table.List()
 	if err != nil {
@@ -684,9 +685,9 @@ func (r *router) flushRouteEvents(evType EventType) ([]*Event, error) {
 
 	if r.options.Advertise == AdvertiseAll {
 		// build a list of events to advertise
-		events := make([]*Event, len(routes))
+		events := make([]*table.Event, len(routes))
 		for i, route := range routes {
-			event := &Event{
+			event := &table.Event{
 				Type:      evType,
 				Timestamp: time.Now(),
 				Route:     route,
@@ -697,7 +698,7 @@ func (r *router) flushRouteEvents(evType EventType) ([]*Event, error) {
 	}
 
 	// routeMap stores optimal routes per service
-	bestRoutes := make(map[string]Route)
+	bestRoutes := make(map[string]table.Route)
 
 	// go through all routes found in the routing table and collapse them to optimal routes
 	for _, route := range routes {
@@ -724,10 +725,10 @@ func (r *router) flushRouteEvents(evType EventType) ([]*Event, error) {
 	log.Debugf("Router advertising %d best routes out of %d", len(bestRoutes), len(routes))
 
 	// build a list of events to advertise
-	events := make([]*Event, len(bestRoutes))
+	events := make([]*table.Event, len(bestRoutes))
 	i := 0
 	for _, route := range bestRoutes {
-		event := &Event{
+		event := &table.Event{
 			Type:      evType,
 			Timestamp: time.Now(),
 			Route:     route,
@@ -742,7 +743,7 @@ func (r *router) flushRouteEvents(evType EventType) ([]*Event, error) {
 // Solicit advertises all of its routes to the network
 // It returns error if the router fails to list the routes
 func (r *router) Solicit() error {
-	events, err := r.flushRouteEvents(Update)
+	events, err := r.flushRouteEvents(table.Update)
 	if err != nil {
 		return fmt.Errorf("failed solicit routes: %s", err)
 	}
@@ -752,16 +753,6 @@ func (r *router) Solicit() error {
 	go r.publishAdvert(RouteUpdate, events)
 
 	return nil
-}
-
-// Lookup routes in the routing table
-func (r *router) Lookup(q ...QueryOption) ([]Route, error) {
-	return r.table.Query(q...)
-}
-
-// Watch routes
-func (r *router) Watch(opts ...WatchOption) (Watcher, error) {
-	return r.table.Watch(opts...)
 }
 
 // Status returns router status

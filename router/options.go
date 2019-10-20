@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/micro/go-micro/client"
 	"github.com/micro/go-micro/registry"
+	"github.com/micro/go-micro/router/table"
 )
 
 // Options are router options
@@ -20,6 +21,8 @@ type Options struct {
 	Registry registry.Registry
 	// Advertise is the advertising strategy
 	Advertise Strategy
+	// Table is routing table
+	Table table.Table
 	// Client for calling router
 	Client client.Client
 }
@@ -66,6 +69,12 @@ func Registry(r registry.Registry) Option {
 	}
 }
 
+func Table(t table.Table) Option {
+	return func(o *Options) {
+		o.Table = t
+	}
+}
+
 // Strategy sets route advertising strategy
 func Advertise(a Strategy) Option {
 	return func(o *Options) {
@@ -81,5 +90,6 @@ func DefaultOptions() Options {
 		Network:   DefaultNetwork,
 		Registry:  registry.DefaultRegistry,
 		Advertise: AdvertiseBest,
+		Table:     table.DefaultTable,
 	}
 }
