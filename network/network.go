@@ -107,6 +107,7 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 		router.Network(Network),
 		router.Id(service.Server().Options().Id),
 		router.Registry(service.Client().Options().Registry),
+		router.RoutingTable(router.NewMemDBTable()),
 	)
 
 	// create new network
