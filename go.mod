@@ -24,3 +24,5 @@ require (
 	golang.org/x/sys v0.0.0-20190812073006-9eafafc0a87e // indirect
 	google.golang.org/grpc v1.24.0
 )
+
+replace github.com/micro/go-micro => github.com/milosgajdos83/go-micro v1.6.1-0.20191027143241-e12f7c940b90
